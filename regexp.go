@@ -149,7 +149,7 @@ func (r *routeRegexp) Match(req *http.Request, match *RouteMatch) bool {
 		if r.matchQuery {
 			return r.matchQueryString(req)
 		} else {
-			return r.regexp.MatchString(req.URL.Path)
+			return r.regexp.MatchString(req.URL.EscapedPath())
 		}
 	}
 	return r.regexp.MatchString(getHost(req))
@@ -163,7 +163,11 @@ func (r *routeRegexp) url(values map[string]string) (string, error) {
 		if !ok {
 			return "", fmt.Errorf("mux: missing route variable %q", v)
 		}
-		urlValues[k] = value
+		if r.varsR[k].MatchString(value) {
+			urlValues[k] = value
+		} else {
+			urlValues[k] = url.QueryEscape(value)
+		}
 	}
 	rv := fmt.Sprintf(r.reverse, urlValues...)
 	if !r.regexp.MatchString(rv) {
@@ -260,19 +264,26 @@ func (v *routeRegexpGroup) setMatch(req *http.Request, m *RouteMatch, r *Route) 
 	}
 	// Store path variables.
 	if v.path != nil {
-		pathVars := v.path.regexp.FindStringSubmatch(req.URL.Path)
+		escapedPath := req.URL.EscapedPath()
+		pathVars := v.path.regexp.FindStringSubmatch(escapedPath)
 		if pathVars != nil {
 			subexpNames := v.path.regexp.SubexpNames()
 			varName := 0
 			for i, name := range subexpNames[1:] {
 				if name != "" && name == varGroupName(varName) {
-					m.Vars[v.path.varsN[varName]] = pathVars[i+1]
+					pathVar := pathVars[i+1]
+					if u, err := url.QueryUnescape(pathVar); err == nil {
+						// url.QueryUnescape does not fail in usual cases,
+						// but in case it failed, set raw escaped var.
+						pathVar = u
+					}
+					m.Vars[v.path.varsN[varName]] = pathVar
 					varName++
 				}
 			}
 			// Check if we should redirect.
 			if v.path.strictSlash {
-				p1 := strings.HasSuffix(req.URL.Path, "/")
+				p1 := strings.HasSuffix(escapedPath, "/")
 				p2 := strings.HasSuffix(v.path.template, "/")
 				if p1 != p2 {
 					u, _ := url.Parse(req.URL.String())

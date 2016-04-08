@@ -345,6 +345,24 @@ func TestPath(t *testing.T) {
 			path:        "/a/product_name/1",
 			shouldMatch: true,
 		},
+		{
+			title:       "Path route with url-encoded values, match",
+			route:       new(Route).Path("/111/{v1}/333"),
+			request:     newRequest("GET", "http://localhost/111/2%2F%252/333"),
+			vars:        map[string]string{"v1": "2/%2"},
+			host:        "",
+			path:        "/111/2%2F%252/333",
+			shouldMatch: true,
+		},
+		{
+			title:       "Path route with slash, do not match with url encoded path",
+			route:       new(Route).Path("/111/{v1:2/2}/333"),
+			request:     newRequest("GET", "http://localhost/111/2%2F2/333"),
+			vars:        map[string]string{},
+			host:        "",
+			path:        "/111/2%2F2/333",
+			shouldMatch: false,
+		},
 	}
 
 	for _, test := range tests {

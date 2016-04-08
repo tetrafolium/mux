@@ -68,7 +68,8 @@ func (r *Router) Match(req *http.Request, match *RouteMatch) bool {
 // mux.Vars(request).
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// Clean path to canonical form and redirect.
-	if p := cleanPath(req.URL.Path); p != req.URL.Path {
+	escapedPath := req.URL.EscapedPath()
+	if p := cleanPath(escapedPath); p != escapedPath {
 
 		// Added 3 lines (Philip Schlump) - It was dropping the query string and #whatever from query.
 		// This matches with fix in go 1.2 r.c. 4 for same problem.  Go Issue:
